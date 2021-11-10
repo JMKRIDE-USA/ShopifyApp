@@ -1,5 +1,5 @@
 import ApolloClient from "apollo-boost";
-import { ApolloProvider } from "react-apollo";
+import { ApolloProvider } from "@apollo/client";
 import App from "next/app";
 import { AppProvider } from "@shopify/polaris";
 import { Provider, useAppBridge } from "@shopify/app-bridge-react";
