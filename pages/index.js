@@ -1,21 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { 
-  Heading, Page, Button, Badge, List, Card, SkeletonPage, 
-  SkeletonDisplayText, SkeletonBodyText, ResourceList, ResourceItem, Icon, TextStyle,
+  Form, Heading, Page, Button, Badge, List, Card, SkeletonPage, 
+  SkeletonDisplayText, SkeletonBodyText, ResourceList, ResourceItem, Icon, TextStyle, TextField, Select, FormLayout,
 } from "@shopify/polaris";
-import { useQuery } from '@apollo/client';
-import { BiBroadcast } from 'react-icons/bi';
+import { useMutation } from '@apollo/client';
+import { BiBroadcast, BiXCircle } from 'react-icons/bi';
 
-import { ambassadorsiteEndpoint } from "../environment.js";
-import { GET_ACCESS_SCOPES, GET_SUBSCRIPTIONS } from '../modules/webhooks.js';
+import { ambassadorsiteEndpoint, ambassadorsiteTopic } from "../environment.js";
+import { allowedWebhookTopics } from '../config.js';
+import { 
+  GET_ACCESS_SCOPES, GET_SUBSCRIPTIONS,
+  DELETE_SUBSCRIPTION, CREATE_HTTPS_SUBSCRIPTION 
+} from '../modules/webhooks.js';
 import { QueryLoader } from '../modules/data.js';
-
-const SubscriptionItem = (deleteSubscription) => ({ node }) => (
-  <li key={node.id}>
-    <p>{node.id} : {node.topic} : {node.endpoint?.callbackUrl}</p>
-    <Button destructive onClick={() => deleteSubscription({ variables: { id: node.id } })}>Delete</Button>
-  </li>
-)
 
 const ValidateConfigBadge = ({ accessScopeData, subscriptionData }) => {
   const configurationStatus = (() => {
@@ -38,18 +35,12 @@ const AccessScopeList = ({ data }) => {
   </List>
 }
 
-const SubscriptionList = ({ data }) => {
-  console.log(data)
-  const [selectedItems, setSelectedItems] = useState([]);
-  const bulkActions = [{
-    content: 'Delete',
-    onAction: () => console.log("nah")
-  }]
+const SubscriptionList = ({ data, setCreating }) => {
+  const [deleteSubscription, mutationQuery] = useMutation(DELETE_SUBSCRIPTION, {refetchQueries: ["webhookSubscriptions"]})
   return <ResourceList 
     resourceName={{singular: "Subscription", plural: "Subscriptions"}}
-    selectedItems={selectedItems}
-    onSelectionChange={setSelectedItems}
-    bulkActions={bulkActions}
+    loading={mutationQuery.loading}
+    alternateTool={<Button onClick={() => setCreating(true)}>Create Subscription</Button>}
     items={data.webhookSubscriptions.edges.map(n => ({
       id: n.node.id,
       topic: n.node.topic,
@@ -57,7 +48,10 @@ const SubscriptionList = ({ data }) => {
       createdAt: new Date(n.node.createdAt).toString()
     }))}
     renderItem={({id, topic, endpoint, createdAt}) => (
-      <ResourceItem id={id} media={<Icon source={()=> <BiBroadcast size={30}/>}/>}>
+      <ResourceItem id={id}
+        media={<Icon source={()=> <BiBroadcast size={30}/>}/>}
+        shortcutActions={{content: 'Delete', onAction: () => deleteSubscription({variables: {id}})}}
+      >
         <h3>
           <TextStyle variation="strong">
             {topic}
@@ -70,25 +64,62 @@ const SubscriptionList = ({ data }) => {
   />
 }
 
+export const SubscriptionCreationForm = ({setCreating}) => {
+  const [endpoint, setEndpoint] = useState(ambassadorsiteEndpoint)
+  const [topic, setTopic] = useState(ambassadorsiteTopic);
+  const handleEndpointChange = useCallback((n) => setEndpoint(n), []);
+  const [
+    mutateFunction, {loading},
+  ] = useMutation(
+    CREATE_HTTPS_SUBSCRIPTION, {
+      variables: {topic, webhookSubscription: {callbackUrl: endpoint, format: "JSON"}},
+      refetchQueries: ["webhookSubscriptions"],
+      onCompleted: () => setCreating(false),
+    }
+  );
+  return (
+    <Form onSubmit={mutateFunction}>
+      <FormLayout>
+        <TextField style={{minWidth: "500px"}} label='Endpoint' value={endpoint} onChange={handleEndpointChange} autoComplete="off"
+          connectedLeft={<Select options={allowedWebhookTopics} onChange={setTopic} value={topic}/>}
+          connectedRight={<Button onClick={() => setCreating(false)}><BiXCircle size={20}/></Button>}
+        />
+        <Button loading={loading} submit primary>Create Subscription</Button>
+      </FormLayout>
+    </Form>
+  );
+}
+
+const SubscriptionCard = ({subscriptionData}) => {
+  const [creating, setCreating] = useState(false);
+  return (
+    <Card title="Subscriptions" sectioned>
+      {creating &&
+        <Card.Section>
+          <SubscriptionCreationForm setCreating={setCreating}/>
+        </Card.Section>
+      }
+      <Card.Section>
+        <SubscriptionList data={subscriptionData} setCreating={setCreating}/>
+      </Card.Section>
+    </Card>
+  )
+}
+
 function LoadedIndex({ accessScopeData, subscriptionData }) {
   return (<>
     <Heading element="h1">
-      JMKRIDE Custom Shopify App{" "}
+      Configuration Status:{" "}
       <ValidateConfigBadge {...{ accessScopeData, subscriptionData }} />
     </Heading>
     <Card title="Access Scopes" sectioned>
       <AccessScopeList data={accessScopeData} />
     </Card>
-    <Card title="Subscriptions" sectioned>
-      <SubscriptionList data={subscriptionData} />
-    </Card>
+    <SubscriptionCard subscriptionData={subscriptionData}/>
   </>)
 }
 
 function Index() {
-  const accessScopeQuery = useQuery(GET_ACCESS_SCOPES);
-  // const subscriptionQuery  = useQuery(GET_SUBSCRIPTIONS, {variables: {first: 10}});
-  // const [deleteSubscription, mutationQuery] = useMutation(DELETE_SUBSCRIPTION, {refetchQueries: ["webhookSubscriptions"]})
   const IndexPageSkeleton = () => (
     <SkeletonPage primaryAction>
       <Card sectioned>

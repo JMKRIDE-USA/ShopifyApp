@@ -37,10 +37,11 @@ export const GET_SUBSCRIPTIONS = gql`
 `
 export const CREATE_HTTPS_SUBSCRIPTION = gql`
   mutation webhookSubscriptionCreate(
+    $topic: WebhookSubscriptionTopic!,
     $webhookSubscription: WebhookSubscriptionInput!
   ){
     webhookSubscriptionCreate(
-      topic: ORDERS_CREATE
+      topic: $topic,
       webhookSubscription: $webhookSubscription
     ) {
       webhookSubscription {
@@ -65,29 +66,3 @@ export const DELETE_SUBSCRIPTION = gql`
     }
   }
 `
-
-const webhookQueries = [
-  GET_SUBSCRIPTIONS,
-]
-
-export const WebhookCreationForm = () => {
-  const [endpoint, setEndpoint] = useState(ambassadorsiteEndpoint)
-  const handleEndpointChange = useCallback((n) => setEndpoint(n), []);
-  const [
-    mutateFunction, 
-    { data: mutationData, loading: mutationLoading, error: mutationError }
-  ] = useMutation(
-    CREATE_HTTPS_SUBSCRIPTION, {
-      variables: {
-        webhookSubscription: {callbackUrl: endpoint, format: "JSON"}
-      },
-      refetchQueries: ["webhookSubscriptions"],
-    }
-  );
-  return (
-    <Card>
-      <TextField label='Webhook Endpoint' value={endpoint} onChange={handleEndpointChange} autoComplete="off"/>
-      <Button onClick={mutateFunction}>Create Subscription</Button>
-    </Card>
-  );
-}
