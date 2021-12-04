@@ -1,5 +1,5 @@
 import ApolloClient from "apollo-boost";
-import { ApolloProvider } from "@apollo/client";
+import { ApolloProvider, InMemoryCache } from "@apollo/client";
 import App from "next/app";
 import { AppProvider } from "@shopify/polaris";
 import { Provider, useAppBridge } from "@shopify/app-bridge-react";
@@ -38,6 +38,7 @@ function MyProvider(props) {
     fetchOptions: {
       credentials: "include",
     },
+    cache: new InMemoryCache()
   });
 
   const Component = props.Component;

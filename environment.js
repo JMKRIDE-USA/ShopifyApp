@@ -1,0 +1,1 @@
+export const ambassadorsiteEndpoint = process.env.AMBASSADORSITE_ENDPOINT;
